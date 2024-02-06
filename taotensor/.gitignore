@@ -1,0 +1,7 @@
+sqlite3.db
+.DS_Store
+__pycache__
+subql-starter/.data
+letsencrypt
+.env
+node_modules
