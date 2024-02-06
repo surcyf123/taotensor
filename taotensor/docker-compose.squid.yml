@@ -1,0 +1,68 @@
+version: "3"
+
+services:
+  db:
+    container_name: subsquid_db
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: squid
+    ports:
+      - "23798:5432"
+      # command: ["postgres", "-c", "log_statement=all"]
+    volumes:
+      - ./squid/squid_db:/var/lib/postgresql/data
+    networks:
+      - taotensor
+  processor:
+    container_name: subsquid_processor
+    build:
+      context: ./squid
+      target: processor
+    environment:
+      DB_USER: postgres
+      DB_PASS: postgres
+      DB_NAME: squid
+      DB_HOST: db # <-- Use the service name as the hostname
+      DB_PORT: 5432 # <-- Use the internal PostgreSQL port
+      PROCESSOR_PROMETHEUS_PORT: 3000
+      PROCESSOR_BLOCK_START: 0
+      ARCHIVE_GATEWAY_URL: http://archive-gateway:8000/graphql
+    ports:
+      - "8100:3000"
+      - "8101:4000"
+    depends_on:
+      - db
+    networks:
+      - taotensor
+
+  query-node:
+    container_name: subsquid_query_node
+    build:
+      context: ./squid
+      target: query-node
+    environment:
+      DB_USER: postgres
+      DB_PASS: postgres
+      DB_NAME: squid
+      DB_HOST: db # <-- Use the service name as the hostname
+      DB_PORT: 5432 # <-- Use the internal PostgreSQL port
+      PROCESSOR_PROMETHEUS_PORT: 3000
+    ports:
+      - "8200:3000"
+      - "8201:4000"
+    depends_on:
+      - db
+    networks:
+      - taotensor
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.query-node.rule=Host(`squid.taotensor.com`)"
+      - "traefik.http.routers.query-node.entrypoints=websecure"
+      - "traefik.http.routers.query-node.tls=true"
+      - "traefik.http.routers.query-node.tls.certresolver=letsencrypt"
+      - "traefik.http.services.query-node.loadbalancer.server.port=4000"
+networks:
+  taotensor:
+    external: true

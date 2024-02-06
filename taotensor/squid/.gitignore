@@ -1,0 +1,16 @@
+/node_modules
+/lib
+
+/**Versions.json
+/**Versions.jsonl
+
+# IDE files
+/.idea
+
+squid_db
+squid_db_nakamoto
+squid_db.bak
+archive_db
+archive_db.bak
+
+.DS_Store

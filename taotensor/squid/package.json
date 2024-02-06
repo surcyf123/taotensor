@@ -1,0 +1,39 @@
+{
+  "name": "subtensor-metagraph-squid",
+  "private": true,
+  "engines": {
+    "node": ">=16"
+  },
+  "scripts": {
+    "build": "rm -rf lib && tsc",
+    "db:apply": "npx squid-typeorm-migration-apply",
+    "db:generate": "npx squid-typeorm-migration-generate",
+    "db:create": "npx squid-typeorm-migration-create",
+    "codegen": "squid-typeorm-codegen",
+    "typegen": "squid-substrate-typegen typegen.json",
+    "processor:nakamoto:start": "node lib/processor_nakamoto.js",
+    "processor:start": "node lib/processor.js",
+    "processor:dev": "nodemon --watch 'src/**/*.ts' --exec 'npm run build && npm run processor:start'",
+    "query-node:start": "squid-graphql-server"
+  },
+  "dependencies": {
+    "@subsquid/archive-registry": "^2.1.14",
+    "@subsquid/cli": "^2.3.1",
+    "@subsquid/graphql-server": "^3.3.2",
+    "@subsquid/ss58": "^0.1.4",
+    "@subsquid/substrate-processor": "^2.4.0",
+    "@subsquid/typeorm-migration": "0.1.6",
+    "@subsquid/typeorm-store": "0.2.2",
+    "dotenv": "^16.1.0",
+    "pg": "^8.11.0",
+    "typeorm": "0.3.11"
+  },
+  "devDependencies": {
+    "@subsquid/substrate-metadata-explorer": "^1.1.2",
+    "@subsquid/substrate-typegen": "^2.2.1",
+    "@subsquid/typeorm-codegen": "^0.3.3",
+    "@types/node": "^20.2.5",
+    "nodemon": "^2.0.22",
+    "typescript": "^5.0.4"
+  }
+}

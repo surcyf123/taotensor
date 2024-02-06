@@ -1,0 +1,9 @@
+{
+  "outDir": "src/types_nakamoto",
+  "specVersions": "http://0.0.0.0:8889/graphql",
+  "typesBundle": "./src/types.json",
+  "events": true,
+  "calls": true,
+  "storage": true,
+  "constants": true
+}

@@ -1,0 +1,45 @@
+version: "3.8"
+
+# Setup the network for the reverse proxy.
+# All containers will be connected to this network.
+networks:
+  default:
+    internal: false
+    name: taotensor
+
+services:
+  traefik:
+    image: traefik:2.10
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./traefik.yml:/etc/traefik/traefik.yml
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # The acme.json file is required by Let's Encrypt
+      - ./letsencrypt/acme:/etc/traefik/acme
+
+    labels:
+      # Since we don't expose containers per default we also need to enable traefik to expose the dashboard.
+      - "traefik.enable=true"
+      # http
+      # Since we are using the http challenge we and use the redirect we need
+      #  to enable the http entrypoint.
+      - "traefik.http.routers.dashboard-http.entrypoints=web"
+      # The domain we want to listen to
+      - "traefik.http.routers.dashboard-http.rule=Host(`traefik.taotensor.com`)"
+      # We need to attach the api@internal service to the dashboard-http router
+      #  in order for the dashboard to be able to access the api (I think 🙈)
+      - "traefik.http.routers.dashboard-http.service=api@internal"
+      # https
+      # Enable the https entrypoint
+      - "traefik.http.routers.dashboard.entrypoints=websecure"
+      # The domain we want to listen to
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.taotensor.com`)"
+      # We want to obtain a certificate through Let's Encrypt
+      - "traefik.http.routers.dashboard.tls=true"
+      - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
+      # We need to attach the api@internal service to the dashboard router
+      #  in order for the dashboard to be able to access the api (I think 🙈)
+      - "traefik.http.routers.dashboard.service=api@internal"

@@ -1,0 +1,47 @@
+version: "3.2"
+
+services:
+  node-subtensor:
+    container_name: node-subtensor
+    image: opentensor/subtensor:latest
+    cpu_count: 4
+    mem_limit: 40000000000
+    memswap_limit: 80000000000
+    ports:
+      - "9944:9944"
+      - "30333:30333"
+      - "9933:9933"
+    volumes:
+      - /data2:/data2
+      - /data:/data
+    expose:
+      - "9944"
+      - "30333"
+      - "9933"
+    environment:
+      - CARGO_HOME=/var/www/node-subtensor/.cargo
+    command:
+      - /bin/bash
+      - -c
+      - |
+        ./node-subtensor \
+          --base-path /data2/nakamoto-chain-state \
+          --chain ./raw_spec.json \
+          --rpc-external --rpc-cors all \
+          --ws-external --no-mdns --unsafe-rpc-external \
+          --ws-max-connections 10000 --in-peers 500 --out-peers 500 \
+          --sync Full \
+          --pruning=archive
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.node-subtensor.entrypoints=websecure"
+      - "traefik.http.routers.node-subtensor.rule=Host(`ws.taotensor.com`)"
+      - "traefik.http.routers.node-subtensor.tls=true"
+      - "traefik.http.routers.node-subtensor.tls.certresolver=letsencrypt"
+      - "traefik.http.services.node-subtensor.loadbalancer.server.port=9944"
+
+networks:
+  default:
+    internal: false
+    external: true
+    name: taotensor

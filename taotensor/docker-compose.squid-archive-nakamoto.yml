@@ -1,0 +1,95 @@
+services:
+  # For devnets and testnets postgres it's typically a better fit
+  # For large-scale production setup a CockroachDB cluster may be a better fit
+  archive-db-nakamoto:
+    image: postgres:15
+    restart: always
+    volumes:
+      - ./squid/archive_db_nakamoto:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: squid-archive-nakamoto
+    ports:
+      - "5433:5432"
+    networks:
+      - taotensor
+
+  archive-ingest-nakamoto:
+    depends_on:
+      - archive-db-nakamoto
+    restart: on-failure
+    image: subsquid/substrate-ingest:firesquid
+    environment:
+      DATABASE_TYPE: postgres # set to  `cockroach` for CockroachDb
+    command: [
+        "-e",
+        "wss://ws.taotensor.com",
+        "--endpoint-capacity",
+        "10", # use 10 concurrent ingesters for this endpoint
+        "--types-bundle",
+        "/configs/types.json", # use types.json for this endpoint
+        #  "-e", "wss://kusama-rpc.dwellir.com", "--endpoint-capacity", "10", # use 10 concurrent ingesters for this endpoint
+        # add multiple endpoints to speed up the archiving.
+        # adding the same endpoint will proprtionally increase the bandwidth and the indexing speed.
+        "--start-block",
+        "${ARCHIVE_START_BLOCK:-0}",
+        "--out",
+        "postgres://postgres:postgres@archive-db-nakamoto:5432/squid-archive-nakamoto",
+      ]
+    volumes:
+      - ./squid/src/types.json:/configs/types.json
+    ports:
+      - "9091:9090" # prometheus port
+    networks:
+      - taotensor
+
+  # Graphql api over data from substrate-ingest
+  archive-gateway-nakamoto:
+    depends_on:
+      - archive-db-nakamoto
+    image: subsquid/substrate-gateway:firesquid
+    environment:
+      DATABASE_MAX_CONNECTIONS: 5
+      RUST_LOG: "actix_web=info,actix_server=infoR,substrate_gateway=info,sqlx=debug"
+    command: [
+        "--database-url",
+        "postgres://postgres:postgres@archive-db-nakamoto:5432/squid-archive-nakamoto",
+        "--database-max-connections",
+        "10",
+        # "--evm-support" # uncomment for chains with Frontier EVM pallete
+        # (e.g. Moonbeam/Moonriver or Astar/Shiden)
+      ]
+    ports:
+      - "8889:8000"
+    networks:
+      - taotensor
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.archive-gateway-nakamoto.rule=Host(`archive-gateway-nakamoto.taotensor.com`)"
+      - "traefik.http.routers.archive-gateway-nakamoto.entrypoints=websecure"
+      - "traefik.http.routers.archive-gateway-nakamoto.tls=true"
+      - "traefik.http.routers.archive-gateway-nakamoto.tls.certresolver=letsencrypt"
+      - "traefik.http.services.archive-gateway-nakamoto.loadbalancer.server.port=8000"
+
+  # explorer service is optional, but provides a useful GraphQL interface for
+  # the on-chain data and rich filtering capabilities.
+  # It proved to be a indespensable tool for debugging, development and exploration
+  archive-explorer:
+    image: subsquid/substrate-explorer:firesquid
+    environment:
+      DB_TYPE: postgres # set to `cockroach` for Cockroach DB
+      DB_HOST: archive-db-nakamoto
+      DB_PORT: "5432"
+      DB_NAME: "squid-archive-nakamoto"
+      DB_USER: "postgres"
+      DB_PASS: "postgres"
+      # GRAPHQL_SERVER_PORT: "4350"
+    ports:
+      - "4445:3000"
+    networks:
+      - taotensor
+
+networks:
+  taotensor:
+    external: true

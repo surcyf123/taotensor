@@ -1,0 +1,69 @@
+version: "3"
+
+services:
+  db-nakamoto:
+    container_name: subsquid_db-nakamoto
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: squid
+    ports:
+      - "23799:5432"
+      # command: ["postgres", "-c", "log_statement=all"]
+    volumes:
+      - ./squid/squid_db_nakamoto:/var/lib/postgresql/data
+    networks:
+      - taotensor
+  processor-nakamoto:
+    container_name: subsquid_processor-nakamoto
+    build:
+      context: ./squid
+      target: processor-nakamoto
+    environment:
+      DB_USER: postgres
+      DB_PASS: postgres
+      DB_NAME: squid
+      DB_HOST: db-nakamoto # <-- Use the service name as the hostname
+      DB_PORT: 5432 # <-- Use the internal PostgreSQL port
+      PROCESSOR_PROMETHEUS_PORT: 3000
+      PROCESSOR_BLOCK_START: 0
+      ARCHIVE_GATEWAY_URL: http://archive-gateway-nakamoto:8000/graphql
+      SUBTENSOR_URL: wss://ws.taotensor.com
+    ports:
+      - "8102:3000"
+      - "8103:4000"
+    depends_on:
+      - db-nakamoto
+    networks:
+      - taotensor
+
+  query-node-nakamoto:
+    container_name: subsquid_query_node-nakamoto
+    build:
+      context: ./squid
+      target: query-node
+    environment:
+      DB_USER: postgres
+      DB_PASS: postgres
+      DB_NAME: squid
+      DB_HOST: db # <-- Use the service name as the hostname
+      DB_PORT: 5432 # <-- Use the internal PostgreSQL port
+      PROCESSOR_PROMETHEUS_PORT: 3000
+    ports:
+      - "8202:3000"
+      - "8203:4000"
+    depends_on:
+      - db-nakamoto
+    networks:
+      - taotensor
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.query-node-nakamoto.rule=Host(`squid-nakamoto.taotensor.com`)"
+      - "traefik.http.routers.query-node-nakamoto.entrypoints=websecure"
+      - "traefik.http.routers.query-node-nakamoto.tls=true"
+      - "traefik.http.routers.query-node-nakamoto.tls.certresolver=letsencrypt"
+      - "traefik.http.services.query-node-nakamoto.loadbalancer.server.port=4000"
+networks:
+  taotensor:
+    external: true

@@ -1,0 +1,24 @@
+# docker-compose.yml
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      args:
+        AUTO_RELOAD: "true"
+    ports:
+      - 8000:8000
+    volumes:
+      - .:/app
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.taotensor-backend.entrypoints=websecure"
+      - "traefik.http.routers.taotensor-backend.rule=Host(`api.taotensor.com`)"
+      - "traefik.http.routers.taotensor-backend.tls=true"
+      - "traefik.http.routers.taotensor-backend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.taotensor-backend.loadbalancer.server.port=8000"
+networks:
+  default:
+    internal: false
+    name: taotensor
